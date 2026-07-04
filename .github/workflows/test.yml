@@ -43,11 +43,15 @@ jobs:
       - name: Run Tests
         run: |
           if [ "${{ inputs.runner_type }}" = "docker" ]; then
-            docker exec ${{ inputs.container_name }} ${{ inputs.test_command }}
+            docker exec ${{ inputs.container_name }} bash -c "${{ inputs.test_command }}"
           elif [ "${{ inputs.runner_type }}" = "podman" ]; then
-            podman exec ${{ inputs.container_name }} ${{ inputs.test_command }}
+            podman exec ${{ inputs.container_name }} bash -c "${{ inputs.test_command }}"
           else
+            # Ensure local runner executes multi-line correctly
+            cat << 'EOF' > run_tests.sh
             ${{ inputs.test_command }}
+          EOF
+            bash run_tests.sh
           fi
 
       # 3. Clean up (Only if containers were spun up)

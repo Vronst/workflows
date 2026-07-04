@@ -38,6 +38,12 @@ jobs:
       - name: Install Rust (for Rust Docs)
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Set up PHP & phpDocumentor (for PHP Docs)
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          tools: phpdocumentor
+
       # ----------------------------------------------------
       # GENERATE DOCSTRINGS BY LANGUAGE
       # ----------------------------------------------------
@@ -48,7 +54,6 @@ jobs:
         run: |
           if [ -f Cargo.toml ]; then
             cargo doc --no-deps
-            # Move the output into the folder MkDocs wraps up
             mkdir -p docs/rust
             cp -r target/doc/* docs/rust/
           fi
@@ -59,6 +64,14 @@ jobs:
           if [ -f package.json ]; then
             npm install typedoc --save-dev
             npx typedoc --out docs/js src/
+          fi
+
+      # PHP: Auto-generate HTML from PHPDoc
+      - name: Generate PHP Docs
+        run: |
+          if [ -f composer.json ] || [ -d src ]; then
+            mkdir -p docs/php
+            phpdoc -d src/ -t docs/php/ --quiet
           fi
 
       # ----------------------------------------------------
