@@ -56,8 +56,7 @@ jobs:
           elif [ "${{ inputs.runner_type }}" = "podman" ]; then
             podman exec ${{ inputs.container_name }} bash -c "${{ inputs.test_command }}"
           else
-            printf '%s\n' "${{ inputs.test_command }}" > run_tests.sh
-            bash run_tests.sh
+            ${{ inputs.test_command }}
           fi
 
       # 3. Clean up (Only if containers were spun up)
