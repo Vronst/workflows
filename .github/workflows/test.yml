@@ -17,6 +17,11 @@ on:
         description: "The exact test command to execute"
         required: true
         type: string
+      setup_command:
+        description: "Command for installing tools for local testing."
+        required: false
+        default: ""
+        type: string
 
 jobs:
   test:
@@ -39,6 +44,10 @@ jobs:
           fi
           sleep 10
 
+      - name: Pre-setup
+        if: inputs.runner_type == 'local' && inputs.setup_command != ''
+        run: ${{ inputs.setup_command}}
+
       # 2. Dynamic Test Execution
       - name: Run Tests
         run: |
@@ -47,10 +56,7 @@ jobs:
           elif [ "${{ inputs.runner_type }}" = "podman" ]; then
             podman exec ${{ inputs.container_name }} bash -c "${{ inputs.test_command }}"
           else
-            # Ensure local runner executes multi-line correctly
-            cat << 'EOF' > run_tests.sh
-            ${{ inputs.test_command }}
-          EOF
+            printf '%s\n' "${{ inputs.test_command }}" > run_tests.sh
             bash run_tests.sh
           fi
 
