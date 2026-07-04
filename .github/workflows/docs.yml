@@ -1,0 +1,88 @@
+name: Build and Deploy Docs
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ----------------------------------------------------
+      # SETUP RUNTIMES & TOOLS
+      # ----------------------------------------------------
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install MkDocs & Plugins
+        run: pip install mkdocs-material mkdocstrings[python]
+
+      - name: Set up Node.js (for JS/TS Docs)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Rust (for Rust Docs)
+        uses: dtolnay/rust-toolchain@stable
+
+      # ----------------------------------------------------
+      # GENERATE DOCSTRINGS BY LANGUAGE
+      # ----------------------------------------------------
+      # Python: Handled natively inside MkDocs via mkdocstrings
+
+      # Rust: Auto-generate HTML from code comments
+      - name: Generate Rust Docs
+        run: |
+          if [ -f Cargo.toml ]; then
+            cargo doc --no-deps
+            # Move the output into the folder MkDocs wraps up
+            mkdir -p docs/rust
+            cp -r target/doc/* docs/rust/
+          fi
+
+      # JS/TS: Auto-generate HTML from JSDoc
+      - name: Generate JS/TS Docs
+        run: |
+          if [ -f package.json ]; then
+            npm install typedoc --save-dev
+            npx typedoc --out docs/js src/
+          fi
+
+      # ----------------------------------------------------
+      # BUILD FINAL SITE
+      # ----------------------------------------------------
+      - name: Build Unified Site
+        run: |
+          if [ ! -f mkdocs.yml ]; then
+            echo "site_name: Project Documentation" > mkdocs.yml
+            echo "theme:" >> mkdocs.yml
+            echo "  name: material" >> mkdocs.yml
+            echo "plugins:" >> mkdocs.yml
+            echo "  - mkdocstrings" >> mkdocs.yml
+          fi
+          mkdocs build --site-dir public_html
+
+      # ----------------------------------------------------
+      # DEPLOY
+      # ----------------------------------------------------
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: "public_html"
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

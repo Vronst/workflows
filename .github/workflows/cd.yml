@@ -1,0 +1,65 @@
+name: Create Pull Request
+
+on:
+  workflow_call:
+    inputs:
+      head:
+        description: "head branch"
+        required: true
+        type: string
+      base:
+        description: "base branch"
+        required: true
+        type: string
+      title:
+        description: "Title of PR"
+        required: false
+        default: "Automated workflow PR"
+        type: string
+      body:
+        description: "Body of PR"
+        required: false
+        default: "Automated workflow created this PR, be sure to check changes"
+        type: string
+      flag:
+        description: "Optional flags like --draft"
+        required: false
+        default: ""
+        type: string
+    secrets:
+      TOKEN:
+        description: "GitHub token for creating Pull Request"
+        required: true
+
+jobs:
+  create-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check and Create Pull Request
+        run: |
+          # 1. Check if PR already exists using JSON output (more reliable than grep)
+          EXISTS=$(gh pr list --base "$BASE" --head "$HEAD" --json number --jq 'length')
+
+          if [ "$EXISTS" -gt 0 ]; then
+            echo "PR already exists from $HEAD to $BASE. Skipping."
+          else
+            echo "No existing PR found. Creating one..."
+
+            # 2. Safely parse optional flags into an array to avoid eval
+            IFS=' ' read -r -a EXTRA_FLAGS <<< "$FLAG"
+
+            # 3. Create the PR cleanly mapping environment variables
+            gh pr create \
+              --base "$BASE" \
+              --head "$HEAD" \
+              --title "$TITLE" \
+              --body "$BODY" \
+              "${EXTRA_FLAGS[@]}"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.TOKEN }}
+          BASE: ${{ inputs.base }}
+          HEAD: ${{ inputs.head }}
+          TITLE: ${{ inputs.title }}
+          BODY: ${{ inputs.body }}
+          FLAG: ${{ inputs.flag }}

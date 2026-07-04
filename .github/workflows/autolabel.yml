@@ -1,0 +1,30 @@
+name: Auto Label PRs
+
+on:
+  pull_request:
+    types: [opened, edited]
+
+jobs:
+  labeler:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Label based on title prefix
+        run: |
+          TITLE="${{ github.event.pull_request.title }}"
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          REPO="${{ github.repository }}"
+
+          # Check for FIX: prefix (case-insensitive)
+          if [[ "$TITLE" =~ ^[Ff][Ii][Xx]: ]]; then
+            gh pr edit "$PR_NUMBER" -R "$REPO" --add-label "bug"
+          # Check for FEAT: prefix
+          elif [[ "$TITLE" =~ ^[Ff][Ee][Aa][Tt]: ]]; then
+            gh pr edit "$PR_NUMBER" -R "$REPO" --add-label "feature"
+          # Check for CHORE: prefix
+          elif [[ "$TITLE" =~ ^[Cc][Hh][Oo][Rr][Ee]: ]]; then
+            gh pr edit "$PR_NUMBER" -R "$REPO" --add-label "chore"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

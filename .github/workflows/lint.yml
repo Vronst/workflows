@@ -1,0 +1,36 @@
+name: Lint Check
+
+on:
+  workflow_call:
+
+jobs:
+  lint:
+    name: Lint Code Base
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: read
+      statuses: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Super-Linter
+        uses: super-linter/super-linter/slim@v7
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+          # Optimization: Only lint files changed in the current PR/commit
+          VALIDATE_ALL_CODEBASE: false
+
+          # Enable the specific languages you want (or leave empty to auto-detect everything)
+          # VALIDATE_PYTHON_RUFF: true
+          # VALIDATE_RUSTFMT: true
+          # VALIDATE_PHP_BUILTIN: true
+          # VALIDATE_JAVASCRIPT_ES: true
+          # VALIDATE_JSON: true
+          # VALIDATE_YAML: true

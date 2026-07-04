@@ -1,0 +1,61 @@
+name: Universal Testing Workflow
+
+on:
+  workflow_call:
+    inputs:
+      runner_type:
+        description: "Where to run tests: 'local', 'docker', or 'podman'"
+        required: false
+        default: "local"
+        type: string
+      container_name:
+        description: "Name of the container (Required if runner_type is docker/podman)"
+        required: false
+        default: ""
+        type: string
+      test_command:
+        description: "The exact test command to execute"
+        required: true
+        type: string
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # 1. Environment Setup (Conditional based on container usage)
+      - name: Start Containers (Docker/Podman)
+        if: inputs.runner_type == 'docker' || inputs.runner_type == 'podman'
+        run: |
+          if [ "${{ inputs.runner_type }}" = "podman" ]; then
+            podman-compose up --build -d
+          else
+            docker compose up --build -d
+          fi
+          sleep 10
+
+      # 2. Dynamic Test Execution
+      - name: Run Tests
+        run: |
+          if [ "${{ inputs.runner_type }}" = "docker" ]; then
+            docker exec ${{ inputs.container_name }} ${{ inputs.test_command }}
+          elif [ "${{ inputs.runner_type }}" = "podman" ]; then
+            podman exec ${{ inputs.container_name }} ${{ inputs.test_command }}
+          else
+            ${{ inputs.test_command }}
+          fi
+
+      # 3. Clean up (Only if containers were spun up)
+      - name: Stop and remove containers
+        if: always() && (inputs.runner_type == 'docker' || inputs.runner_type == 'podman')
+        run: |
+          if [ "${{ inputs.runner_type }}" = "podman" ]; then
+            podman-compose down --volumes || true
+          else
+            docker compose down --volumes || true
+          fi
