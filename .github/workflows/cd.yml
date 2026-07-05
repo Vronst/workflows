@@ -35,6 +35,11 @@ jobs:
   create-pr:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Check and Create Pull Request
         run: |
           # 1. Check if PR already exists using JSON output (more reliable than grep)
