@@ -24,13 +24,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-          # Optimization: Only lint files changed in the current PR/commit
           VALIDATE_ALL_CODEBASE: false
 
-          # Enable the specific languages you want (or leave empty to auto-detect everything)
-          # VALIDATE_PYTHON_RUFF: true
-          # VALIDATE_RUSTFMT: true
-          # VALIDATE_PHP_BUILTIN: true
-          # VALIDATE_JAVASCRIPT_ES: true
-          # VALIDATE_JSON: true
-          # VALIDATE_YAML: true
+          VALIDATE_PYTHON_PYLINT: false
+          VALIDATE_PYTHON_PYINK: false
+          VALIDATE_PYTHON_FLAKE8: false
+          VALIDATE_PYTHON_ISORT: false
+
+          VALIDATE_PYTHON_RUFF: true
+          VALIDATE_PYTHON_MYPY: true
