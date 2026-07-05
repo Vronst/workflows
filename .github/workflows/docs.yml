@@ -69,7 +69,7 @@ jobs:
       # PHP: Auto-generate HTML from PHPDoc
       - name: Generate PHP Docs
         run: |
-          if [ -f composer.json ] || [ -d src ]; then
+          if [ -f composer.json ]; then
             mkdir -p docs/php
             phpdoc -d src/ -t docs/php/ --quiet
           fi
