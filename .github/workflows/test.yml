@@ -38,6 +38,7 @@ jobs:
         if: inputs.runner_type == 'docker' || inputs.runner_type == 'podman'
         run: |
           if [ "${{ inputs.runner_type }}" = "podman" ]; then
+            pipx install podman-compose
             podman-compose up --build -d
           else
             docker compose up --build -d
