@@ -12,9 +12,76 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Fetches all history so GitHub can accurately generate the release changelog notes
+          fetch-depth: 0 # Fetches all history + tags so we can diff against the previous release
 
-      - name: Generate Release Notes & Create GitHub Release
+      - name: Build categorized release notes from commit prefixes
+        id: notes
+        run: |
+          TAG_NAME="${{ github.ref_name }}"
+
+          # Find the tag immediately before this one (by creation order).
+          PREV_TAG=$(git tag --sort=-creatordate | grep -A1 -x -F "$TAG_NAME" | tail -n1)
+          if [ "$PREV_TAG" = "$TAG_NAME" ]; then
+            PREV_TAG=""
+          fi
+
+          if [ -n "$PREV_TAG" ]; then
+            echo "Diffing $PREV_TAG..$TAG_NAME"
+            LOG=$(git log --pretty=format:"%s|%h" "$PREV_TAG..$TAG_NAME")
+          else
+            echo "No previous tag found, using full history up to $TAG_NAME"
+            LOG=$(git log --pretty=format:"%s|%h" "$TAG_NAME")
+          fi
+
+          FEATURES=""
+          FIXES=""
+          CHORES=""
+          OTHER=""
+
+          while IFS='|' read -r subject hash; do
+            [ -z "$subject" ] && continue
+            lc=$(printf '%s' "$subject" | tr '[:upper:]' '[:lower:]')
+            case "$lc" in
+              feat:*|feature:*)
+                msg=$(printf '%s' "$subject" | sed -E 's/^[^:]+:[[:space:]]*//')
+                FEATURES="${FEATURES}- ${msg} (${hash})"$'\n'
+                ;;
+              fix:*)
+                msg=$(printf '%s' "$subject" | sed -E 's/^[^:]+:[[:space:]]*//')
+                FIXES="${FIXES}- ${msg} (${hash})"$'\n'
+                ;;
+              chore:*)
+                msg=$(printf '%s' "$subject" | sed -E 's/^[^:]+:[[:space:]]*//')
+                CHORES="${CHORES}- ${msg} (${hash})"$'\n'
+                ;;
+              *)
+                OTHER="${OTHER}- ${subject} (${hash})"$'\n'
+                ;;
+            esac
+          done <<< "$LOG"
+
+          {
+            echo "## What's Changed"
+            if [ -n "$FEATURES" ]; then
+              printf '\n### 🚀 Features\n%s' "$FEATURES"
+            fi
+            if [ -n "$FIXES" ]; then
+              printf '\n### 🐛 Fixes\n%s' "$FIXES"
+            fi
+            if [ -n "$CHORES" ]; then
+              printf '\n### 🧹 Chores\n%s' "$CHORES"
+            fi
+            if [ -n "$OTHER" ]; then
+              printf '\n### Other\n%s' "$OTHER"
+            fi
+            if [ -n "$PREV_TAG" ]; then
+              printf '\n**Full Changelog**: %s...%s\n' "$PREV_TAG" "$TAG_NAME"
+            fi
+          } > release_notes.md
+
+          cat release_notes.md
+
+      - name: Create GitHub Release
         run: |
           TAG_NAME="${{ github.ref_name }}"
 
@@ -22,6 +89,6 @@ jobs:
 
           gh release create "$TAG_NAME" \
             --title "Release $TAG_NAME" \
-            --generate-notes
+            --notes-file release_notes.md
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

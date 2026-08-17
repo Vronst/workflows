@@ -24,13 +24,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-          # Optimization: Only lint files changed in the current PR/commit
           VALIDATE_ALL_CODEBASE: false
 
-          # Enable the specific languages you want (or leave empty to auto-detect everything)
-          # VALIDATE_PYTHON_RUFF: true
-          # VALIDATE_RUSTFMT: true
-          # VALIDATE_PHP_BUILTIN: true
-          # VALIDATE_JAVASCRIPT_ES: true
-          # VALIDATE_JSON: true
-          # VALIDATE_YAML: true
+          # Deliberately no VALIDATE_<LANGUAGE> overrides here: this workflow
+          # is shared across Python, Rust, PHP and JS/TS repos. Setting any
+          # single VALIDATE_<LANGUAGE>=true flips super-linter into opt-in
+          # mode, silently disabling every other language's linters (e.g. a
+          # Python-only override made a pure-Rust repo's lint job pass green
+          # without ever running clippy/rustfmt). Leave unset so it
+          # auto-detects and lints whatever languages are actually present.

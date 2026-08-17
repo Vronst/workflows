@@ -95,7 +95,14 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           path: "public_html"
+          # Scoped to run id + attempt so a re-run never collides with a
+          # stale artifact left over from an earlier attempt of this same
+          # run — deploy-pages below looks up this exact name, so there's
+          # never more than one candidate to disambiguate between.
+          name: "github-pages-${{ github.run_id }}-${{ github.run_attempt }}"
 
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          artifact_name: "github-pages-${{ github.run_id }}-${{ github.run_attempt }}"
