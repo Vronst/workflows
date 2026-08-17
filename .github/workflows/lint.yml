@@ -26,5 +26,10 @@ jobs:
 
           VALIDATE_ALL_CODEBASE: false
 
-          VALIDATE_PYTHON_RUFF: true
-          VALIDATE_PYTHON_MYPY: true
+          # Deliberately no VALIDATE_<LANGUAGE> overrides here: this workflow
+          # is shared across Python, Rust, PHP and JS/TS repos. Setting any
+          # single VALIDATE_<LANGUAGE>=true flips super-linter into opt-in
+          # mode, silently disabling every other language's linters (e.g. a
+          # Python-only override made a pure-Rust repo's lint job pass green
+          # without ever running clippy/rustfmt). Leave unset so it
+          # auto-detects and lints whatever languages are actually present.
