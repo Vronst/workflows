@@ -2,6 +2,24 @@ name: Lint Check
 
 on:
   workflow_call:
+    inputs:
+      validate_all_codebase:
+        description: "Lint the whole repo instead of just the diff"
+        required: false
+        default: false
+        type: boolean
+      linter_env:
+        description: |
+          Extra environment variables to pass to Super-Linter, one KEY=VALUE
+          per line. Use this to opt specific linters in or out, e.g.:
+            VALIDATE_PYTHON=true
+            VALIDATE_JAVASCRIPT_ES=false
+            PYTHON_RUFF_CONFIG_FILE=ruff.toml
+          Leave unset (the default) to let Super-Linter auto-detect and run
+          every linter for the languages actually present in the repo.
+        required: false
+        default: ""
+        type: string
 
 jobs:
   lint:
@@ -19,17 +37,23 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Apply caller-supplied linter overrides
+        if: inputs.linter_env != ''
+        run: echo "${{ inputs.linter_env }}" >> "$GITHUB_ENV"
+
       - name: Run Super-Linter
         uses: super-linter/super-linter/slim@v7
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-          VALIDATE_ALL_CODEBASE: false
+          VALIDATE_ALL_CODEBASE: ${{ inputs.validate_all_codebase }}
 
-          # Deliberately no VALIDATE_<LANGUAGE> overrides here: this workflow
+          # No VALIDATE_<LANGUAGE> overrides are hardcoded here: this workflow
           # is shared across Python, Rust, PHP and JS/TS repos. Setting any
           # single VALIDATE_<LANGUAGE>=true flips super-linter into opt-in
           # mode, silently disabling every other language's linters (e.g. a
           # Python-only override made a pure-Rust repo's lint job pass green
-          # without ever running clippy/rustfmt). Leave unset so it
-          # auto-detects and lints whatever languages are actually present.
+          # without ever running clippy/rustfmt). By default this stays unset
+          # so it auto-detects and lints whatever languages are present;
+          # callers who want to override that opt in explicitly via the
+          # `linter_env` input above, on their own repo, at their own risk.

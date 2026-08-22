@@ -18,8 +18,18 @@ A high-performance, polyglot repository supporting **Python, Rust, JavaScript, a
 This repository features zero-maintenance automation pipelines. Below is a description of what each workflow does and exactly how to trigger it in your repository:
 
 ### 1. Code Style & Quality (`Lint Check`)
-* **What it does:** Automatically analyzes your codebase to catch bugs, syntax issues, and formatting errors before they make it into production. It auto-detects the languages present and runs the appropriate engine (`Ruff` for Python, `cargo fmt` & `clippy` for Rust, `ESLint` & `Prettier` for JS/TS, and PHP native analysis).
+* **What it does:** Automatically analyzes your codebase to catch bugs, syntax issues, and formatting errors before they make it into production. By default it auto-detects the languages present and runs the appropriate engine (`Ruff` for Python, `cargo fmt` & `clippy` for Rust, `ESLint` & `Prettier` for JS/TS, and PHP native analysis).
 * **How to trigger it:** Push any commit to an active branch, or open/update a Pull Request. The pipeline will automatically isolate and lint only the files you changed.
+* **Optional inputs:**
+  * `validate_all_codebase` (boolean, default `false`) — lint the whole repo instead of just the changed files.
+  * `linter_env` (string, default `""`) — extra `KEY=VALUE` lines (one per line) forwarded as environment variables to Super-Linter. Use this to opt specific linters in or out, e.g.:
+    ```yaml
+    with:
+      linter_env: |
+        VALIDATE_PYTHON=true
+        VALIDATE_JAVASCRIPT_ES=false
+    ```
+    Leave it unset to keep the safe default of auto-detecting and linting every language present.
 
 ### 2. Pull Request Automation (`Create Pull Request`)
 * **What it does:** Automatically checks if an open Pull Request already exists for your active development branches. If no PR exists, it safely creates a new automated Pull Request targeting your base branch, maps your input titles cleanly, and manages flags without introducing security vulnerabilities.
