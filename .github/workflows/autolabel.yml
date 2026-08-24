@@ -8,23 +8,62 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
+      issues: write # required by `gh label create` -- labels live under the Issues API even for PRs
       contents: read
     steps:
       - name: Label based on title prefix
-        run: |
-          TITLE="${{ github.event.pull_request.title }}"
-          PR_NUMBER="${{ github.event.pull_request.number }}"
-          REPO="${{ github.repository }}"
-
-          # Check for FIX: prefix (case-insensitive)
-          if [[ "$TITLE" =~ ^[Ff][Ii][Xx]: ]]; then
-            gh pr edit "$PR_NUMBER" -R "$REPO" --add-label "bug"
-          # Check for FEAT: prefix
-          elif [[ "$TITLE" =~ ^[Ff][Ee][Aa][Tt]: ]]; then
-            gh pr edit "$PR_NUMBER" -R "$REPO" --add-label "feature"
-          # Check for CHORE: prefix
-          elif [[ "$TITLE" =~ ^[Cc][Hh][Oo][Rr][Ee]: ]]; then
-            gh pr edit "$PR_NUMBER" -R "$REPO" --add-label "chore"
-          fi
         env:
+          # Passed via env, not interpolated into the script body, so a
+          # title containing shell metacharacters (`, $(), ", ...) is just
+          # a string bash reads -- never re-parsed as script.
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TITLE: ${{ github.event.pull_request.title }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          # Case-insensitive Conventional-Commits-style prefix matching:
+          # "<type>(optional scope)!: subject". Several synonyms map to
+          # each label so this doesn't break on e.g. "Feature:" vs "Feat:".
+          # Add a new synonym by extending a branch's alternation below;
+          # add a new label entirely by adding a LABEL_COLORS entry + branch.
+          shopt -s nocasematch
+
+          declare -A LABEL_COLORS=(
+            ["bug"]="d73a4a"
+            ["feature"]="a2eeef"
+            ["chore"]="fef2c0"
+            ["documentation"]="0075ca"
+          )
+
+          # Patterns live in variables, not inline in [[ =~ ]], because bash's
+          # own parser (not just the regex engine) trips over unquoted parens
+          # written directly on the [[ ]] command line.
+          bug_re='^(fix|fixed|bugfix|hotfix)(\([^)]*\))?!?:'
+          feat_re='^(feat|feature)(\([^)]*\))?!?:'
+          chore_re='^(chore|chores|maint|maintenance)(\([^)]*\))?!?:'
+          docs_re='^(docs|doc|documentation)(\([^)]*\))?!?:'
+
+          label=""
+          if [[ "$TITLE" =~ $bug_re ]]; then
+            label="bug"
+          elif [[ "$TITLE" =~ $feat_re ]]; then
+            label="feature"
+          elif [[ "$TITLE" =~ $chore_re ]]; then
+            label="chore"
+          elif [[ "$TITLE" =~ $docs_re ]]; then
+            label="documentation"
+          fi
+
+          if [[ -z "$label" ]]; then
+            echo "No recognized type prefix in title '$TITLE' -- skipping labeling."
+            exit 0
+          fi
+
+          # Labels must exist on the repo before they can be attached --
+          # gh pr edit --add-label fails on an unknown label rather than
+          # creating one. Creating it here (idempotent, ignores "already
+          # exists") is what lets this workflow drop into any repo without
+          # requiring someone to pre-create feature/chore/etc. by hand.
+          gh label create "$label" -R "$REPO" --color "${LABEL_COLORS[$label]}" >/dev/null 2>&1 || true
+
+          gh pr edit "$PR_NUMBER" -R "$REPO" --add-label "$label"
