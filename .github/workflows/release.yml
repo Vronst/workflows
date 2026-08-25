@@ -19,19 +19,33 @@ jobs:
         run: |
           TAG_NAME="${{ github.ref_name }}"
 
-          # Find the tag immediately before this one (by creation order).
-          PREV_TAG=$(git tag --sort=-creatordate | grep -A1 -x -F "$TAG_NAME" | tail -n1)
-          if [ "$PREV_TAG" = "$TAG_NAME" ]; then
-            PREV_TAG=""
+          # Find the nearest tag reachable from this one's parent, by commit
+          # ancestry -- not `git tag --sort=-creatordate`, which is fragile
+          # here: for lightweight tags, "creatordate" is the tagged commit's
+          # date, and two releases cut within the same second (a scripted
+          # release, or just two quick tags same day) tie and can sort in
+          # the wrong order. Fails harmlessly to empty for the very first
+          # tag, or a tag on a repo's first commit (no parent at all).
+          PREV_TAG=$(git describe --tags --abbrev=0 "${TAG_NAME}^" 2>/dev/null || true)
+
+          if [ -z "$PREV_TAG" ]; then
+            # First tagged release ever -- there's no "since last release"
+            # story to tell, and categorizing the *entire* development
+            # history as if it were user-facing changes (months of
+            # "fix: linting", merge commits, etc.) is misleading rather
+            # than informative. Keep it simple instead.
+            echo "No previous tag found -- treating this as the initial release."
+            {
+              echo "## 🎉 Initial Release"
+              echo
+              echo "This is the first tagged release of this project."
+            } > release_notes.md
+            cat release_notes.md
+            exit 0
           fi
 
-          if [ -n "$PREV_TAG" ]; then
-            echo "Diffing $PREV_TAG..$TAG_NAME"
-            LOG=$(git log --pretty=format:"%s|%h" "$PREV_TAG..$TAG_NAME")
-          else
-            echo "No previous tag found, using full history up to $TAG_NAME"
-            LOG=$(git log --pretty=format:"%s|%h" "$TAG_NAME")
-          fi
+          echo "Diffing $PREV_TAG..$TAG_NAME"
+          LOG=$(git log --pretty=format:"%s|%h" "$PREV_TAG..$TAG_NAME")
 
           FEATURES=""
           FIXES=""
@@ -74,9 +88,9 @@ jobs:
             if [ -n "$OTHER" ]; then
               printf '\n### Other\n%s' "$OTHER"
             fi
-            if [ -n "$PREV_TAG" ]; then
-              printf '\n**Full Changelog**: %s...%s\n' "$PREV_TAG" "$TAG_NAME"
-            fi
+            # PREV_TAG is always set here -- the empty case already
+            # returned above.
+            printf '\n**Full Changelog**: %s...%s\n' "$PREV_TAG" "$TAG_NAME"
           } > release_notes.md
 
           cat release_notes.md
